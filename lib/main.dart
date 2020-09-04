@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 void main() {
@@ -26,7 +29,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   CalendarController _controller;
   Map<DateTime, List<dynamic>> _events;
+  List<dynamic> _selectedEvents;
   TextEditingController _eventController;
+  SharedPreferences prefs;
 
   @override
   void initState() {
@@ -35,6 +40,16 @@ class _HomePageState extends State<HomePage> {
     _controller = CalendarController();
     _eventController = TextEditingController();
     _events = {};
+    _selectedEvents = [];
+    initPrefs();
+  }
+
+  initPrefs() async {
+    prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _events = Map<DateTime, List<dynamic>>.from(decodeMap(json.decode(prefs.getString
+        ("events") ?? "{}")));
+    });
   }
 
   Map<String, dynamic> encodeMap(Map<DateTime, dynamic> map) {
@@ -67,8 +82,31 @@ class _HomePageState extends State<HomePage> {
               events: _events,
               calendarStyle: CalendarStyle(todayColor: Colors.orange),
               startingDayOfWeek: StartingDayOfWeek.monday,
+              onDaySelected: (date, events){
+                setState(() {
+                  _selectedEvents = events;
+                });
+              },
+              builders: CalendarBuilders(
+                selectedDayBuilder: (context, date, events) =>
+                    Container(
+                      margin: const EdgeInsets.all(4.0),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor,
+                        borderRadius: BorderRadius.circular(10.0),
+                      ),
+                      child: Text(
+                        date.day.toString(),
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+              ),
               calendarController: _controller,
-            )
+            ),
+            ... _selectedEvents.map((event) => ListTile(
+              title: Text(event),
+            )),
           ],
         ),
       ),
@@ -100,6 +138,9 @@ class _HomePageState extends State<HomePage> {
                           _eventController.text
                         ];
                       }
+                      prefs.setString("event", json.encode(encodeMap(_events)));
+                      _eventController.clear();
+                      Navigator.pop(context);
                     });
                   },
                 )
